@@ -6,8 +6,9 @@
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     .card { border: 1px solid #ccc; padding: 15px; margin: 10px 0; border-radius: 8px; }
-    .alternativa { margin-left: 20px; }
-    button { margin-top: 5px; }
+    .alternativa { margin: 5px 0; }
+    input, textarea { margin: 5px 0; padding: 5px; width: 100%; }
+    button { margin-top: 5px; padding: 6px 10px; }
   </style>
 </head>
 <body>
@@ -35,20 +36,32 @@
     let perguntasTemp = [];
 
     function adicionarPergunta() {
-      const enunciado = prompt("Digite o enunciado da pergunta:");
-      if (!enunciado) return;
-      const pergunta = { enunciado, alternativas: [] };
-
-      let addMore = true;
-      while (addMore) {
-        const texto = prompt("Digite uma alternativa:");
-        const correta = confirm("Essa alternativa é correta?");
-        pergunta.alternativas.push({ texto, correta });
-        addMore = confirm("Adicionar outra alternativa?");
-      }
-
+      const pergunta = { enunciado: "", alternativas: [] };
       perguntasTemp.push(pergunta);
       renderPerguntas();
+    }
+
+    function adicionarAlternativa(perguntaIndex) {
+      perguntasTemp[perguntaIndex].alternativas.push({ texto: "", correta: false });
+      renderPerguntas();
+    }
+
+    function removerPergunta(i) {
+      perguntasTemp.splice(i, 1);
+      renderPerguntas();
+    }
+
+    function removerAlternativa(perguntaIndex, altIndex) {
+      perguntasTemp[perguntaIndex].alternativas.splice(altIndex, 1);
+      renderPerguntas();
+    }
+
+    function atualizarEnunciado(i, value) {
+      perguntasTemp[i].enunciado = value;
+    }
+
+    function atualizarAlternativa(perguntaIndex, altIndex, field, value) {
+      perguntasTemp[perguntaIndex].alternativas[altIndex][field] = value;
     }
 
     function renderPerguntas() {
@@ -57,8 +70,26 @@
       perguntasTemp.forEach((p, i) => {
         const card = document.createElement('div');
         card.className = "card";
-        card.innerHTML = `<b>${p.enunciado}</b><br>` +
-          p.alternativas.map(a => `<div class='alternativa'>${a.texto} ${a.correta ? "(correta)" : ""}</div>`).join("");
+        card.innerHTML = `
+          <b>Pergunta ${i+1}</b><br>
+          <input type="text" placeholder="Enunciado" value="${p.enunciado}" 
+                 oninput="atualizarEnunciado(${i}, this.value)">
+          <div>
+            ${p.alternativas.map((a, j) => `
+              <div class="alternativa">
+                <input type="text" placeholder="Alternativa" value="${a.texto}" 
+                       oninput="atualizarAlternativa(${i}, ${j}, 'texto', this.value)">
+                <label>
+                  <input type="checkbox" ${a.correta ? "checked" : ""} 
+                         onchange="atualizarAlternativa(${i}, ${j}, 'correta', this.checked)"> Correta
+                </label>
+                <button onclick="removerAlternativa(${i}, ${j})">Remover</button>
+              </div>
+            `).join("")}
+          </div>
+          <button onclick="adicionarAlternativa(${i})">+ Alternativa</button>
+          <button onclick="removerPergunta(${i})">Remover Pergunta</button>
+        `;
         div.appendChild(card);
       });
     }
@@ -66,6 +97,11 @@
     async function salvarQuiz() {
       const titulo = document.getElementById("titulo").value;
       const descricao = document.getElementById("descricao").value;
+
+      if (!titulo || perguntasTemp.length === 0) {
+        alert("Preencha o título e adicione pelo menos uma pergunta!");
+        return;
+      }
 
       const quiz = { titulo, descricao, perguntas: perguntasTemp };
 
@@ -78,6 +114,8 @@
       const data = await res.json();
       alert(data.message);
       perguntasTemp = [];
+      document.getElementById("titulo").value = "";
+      document.getElementById("descricao").value = "";
       renderPerguntas();
       carregarQuizzes();
     }
