@@ -36,13 +36,12 @@
     let perguntasTemp = [];
 
     function adicionarPergunta() {
-      const pergunta = { enunciado: "", alternativas: [] };
-      perguntasTemp.push(pergunta);
+      perguntasTemp.push({ enunciado: "", alternativas: [] });
       renderPerguntas();
     }
 
-    function adicionarAlternativa(perguntaIndex) {
-      perguntasTemp[perguntaIndex].alternativas.push({ texto: "", correta: false });
+    function adicionarAlternativa(i) {
+      perguntasTemp[i].alternativas.push({ texto: "", correta: false });
       renderPerguntas();
     }
 
@@ -51,18 +50,13 @@
       renderPerguntas();
     }
 
-    function removerAlternativa(perguntaIndex, altIndex) {
-      perguntasTemp[perguntaIndex].alternativas.splice(altIndex, 1);
+    function removerAlternativa(i, j) {
+      perguntasTemp[i].alternativas.splice(j, 1);
       renderPerguntas();
     }
 
-    function atualizarEnunciado(i, value) {
-      perguntasTemp[i].enunciado = value;
-    }
-
-    function atualizarAlternativa(perguntaIndex, altIndex, field, value) {
-      perguntasTemp[perguntaIndex].alternativas[altIndex][field] = value;
-    }
+    function atualizarEnunciado(i, value) { perguntasTemp[i].enunciado = value; }
+    function atualizarAlternativa(i, j, field, value) { perguntasTemp[i].alternativas[j][field] = value; }
 
     function renderPerguntas() {
       const div = document.getElementById('perguntas');
@@ -70,18 +64,14 @@
       perguntasTemp.forEach((p, i) => {
         const card = document.createElement('div');
         card.className = "card";
-        card.innerHTML = `
-          <b>Pergunta ${i+1}</b><br>
-          <input type="text" placeholder="Enunciado" value="${p.enunciado}" 
-                 oninput="atualizarEnunciado(${i}, this.value)">
+        card.innerHTML = `<b>Pergunta ${i+1}</b><br>
+          <input type="text" placeholder="Enunciado" value="${p.enunciado}" oninput="atualizarEnunciado(${i}, this.value)">
           <div>
             ${p.alternativas.map((a, j) => `
               <div class="alternativa">
-                <input type="text" placeholder="Alternativa" value="${a.texto}" 
-                       oninput="atualizarAlternativa(${i}, ${j}, 'texto', this.value)">
+                <input type="text" placeholder="Alternativa" value="${a.texto}" oninput="atualizarAlternativa(${i}, ${j}, 'texto', this.value)">
                 <label>
-                  <input type="checkbox" ${a.correta ? "checked" : ""} 
-                         onchange="atualizarAlternativa(${i}, ${j}, 'correta', this.checked)"> Correta
+                  <input type="checkbox" ${a.correta ? "checked" : ""} onchange="atualizarAlternativa(${i}, ${j}, 'correta', this.checked)"> Correta
                 </label>
                 <button onclick="removerAlternativa(${i}, ${j})">Remover</button>
               </div>
@@ -98,67 +88,61 @@
       const titulo = document.getElementById("titulo").value;
       const descricao = document.getElementById("descricao").value;
 
-      if (!titulo || perguntasTemp.length === 0) {
-        alert("Preencha o título e adicione pelo menos uma pergunta!");
-        return;
-      }
+      if (!titulo || perguntasTemp.length === 0) return alert("Preencha título e perguntas");
 
       const quiz = { titulo, descricao, perguntas: perguntasTemp };
 
-      const res = await fetch("http://localhost:5000/quiz", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(quiz)
-      });
-
-      const data = await res.json();
-      alert(data.message);
-      perguntasTemp = [];
-      document.getElementById("titulo").value = "";
-      document.getElementById("descricao").value = "";
-      renderPerguntas();
-      carregarQuizzes();
+      try {
+        const res = await fetch("/quiz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(quiz)
+        });
+        const data = await res.json();
+        alert(data.message);
+        perguntasTemp = [];
+        document.getElementById("titulo").value = "";
+        document.getElementById("descricao").value = "";
+        renderPerguntas();
+        carregarQuizzes();
+      } catch(err) { console.error(err); alert("Erro ao salvar quiz"); }
     }
 
     async function carregarQuizzes() {
-      const res = await fetch("http://localhost:5000/quiz");
+      const res = await fetch("/quiz");
       const quizzes = await res.json();
-
       const lista = document.getElementById("lista-quizzes");
       lista.innerHTML = "";
       quizzes.forEach(q => {
         const div = document.createElement("div");
         div.className = "card";
         div.innerHTML = `<b>${q.titulo}</b> <br> ${q.descricao} <br>
-                         <button onclick="executarQuiz(${q.id})">Fazer</button>`;
+          <button onclick="executarQuiz(${q.id})">Fazer</button>`;
         lista.appendChild(div);
       });
     }
 
     async function executarQuiz(id) {
-      const res = await fetch(`http://localhost:5000/quiz/${id}`);
+      const res = await fetch(`/quiz/${id}`);
       const quiz = await res.json();
-
       const container = document.getElementById("quiz-container");
       container.innerHTML = `<h3>${quiz.titulo}</h3><p>${quiz.descricao}</p>`;
-
       quiz.perguntas.forEach((p, i) => {
         const div = document.createElement("div");
         div.className = "card";
         div.innerHTML = `<b>${p.enunciado}</b><br>` +
-          p.alternativas.map((a, idx) =>
+          p.alternativas.map((a) =>
             `<label><input type="radio" name="pergunta-${i}" value="${a.correta}"> ${a.texto}</label><br>`
           ).join("");
         container.appendChild(div);
       });
-
       const btn = document.createElement("button");
       btn.textContent = "Enviar Respostas";
       btn.onclick = () => {
         let acertos = 0;
         quiz.perguntas.forEach((p, i) => {
-          const selecionada = document.querySelector(`input[name="pergunta-${i}"]:checked`);
-          if (selecionada && selecionada.value === "true") acertos++;
+          const sel = document.querySelector(`input[name="pergunta-${i}"]:checked`);
+          if (sel && sel.value === "true") acertos++;
         });
         alert(`Você acertou ${acertos} de ${quiz.perguntas.length}`);
       };
